@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Quran Surahs (Chapters)
+model Surah {
+  id            Int      @id @default(autoincrement())
+  number        Int      @unique
+  name          String
+  englishName   String
+  englishNameTranslation String
+  revelationType String  // Meccan or Medinan
+  numberOfAyahs Int
+  ayahs         Ayah[]
+  recitations   Recitation[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("surahs")
+}
+
+// Quran Ayahs (Verses)
+model Ayah {
+  id         Int      @id @default(autoincrement())
+  number     Int      // Ayah number within surah
+  text       String   // Arabic text
+  textIndopak String? // Indopak script variant
+  transliteration String? // English transliteration
+  translation String  // English translation
+  juz        Int
+  page       Int
+  surahId    Int
+  surah      Surah    @relation(fields: [surahId], references: [id])
+  audioTimestamps AudioTimestamp[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([surahId, number])
+  @@map("ayahs")
+}
+
+// Audio timestamps for word-by-word highlighting
+model AudioTimestamp {
+  id        Int      @id @default(autoincrement())
+  ayahId    Int
+  ayah      Ayah     @relation(fields: [ayahId], references: [id])
+  startTime Float    // Start time in seconds
+  endTime   Float    // End time in seconds
+  recitationId Int
+  recitation Recitation @relation(fields: [recitationId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("audio_timestamps")
+}
+
+// Recitations (Audio files)
+model Recitation {
+  id            Int      @id @default(autoincrement())
+  surahId       Int
+  surah         Surah    @relation(fields: [surahId], references: [id])
+  reciterName   String   // Name of reciter
+  reciterId     String?  // External reciter ID if applicable
+  audioUrl      String   // Path to audio file
+  format        String   // mp3, wav, etc.
+  isOfficial    Boolean  @default(false) // Official recitation vs user upload
+  isUserUpload  Boolean  @default(false)
+  userName      String?  // For user uploads
+  userId        String?  // Optional user identifier
+  fileSize      Int?     // File size in bytes
+  duration      Float?   // Duration in seconds
+  description   String?
+  timestamps    AudioTimestamp[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("recitations")
+}
+
+// User uploaded recitations (separate table for easier management)
+model UserRecitation {
+  id            Int      @id @default(autoincrement())
+  surahNumber   Int
+  ayahNumber    Int?     // Optional: specific ayah or full surah
+  reciterName   String   // User's name or nickname
+  audioUrl      String   // Path to uploaded file
+  fileName      String   // Original file name
+  fileSize      Int      // File size in bytes
+  duration      Float?   // Duration in seconds
+  description   String?
+  isApproved    Boolean  @default(false) // Moderation flag
+  playCount     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_recitations")
+}
+
+// Settings/Preferences
+model Settings {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique
+  value         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("settings")
+}
